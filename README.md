@@ -1,0 +1,1 @@
+# aws-lambda-node-authorizer-auth0
