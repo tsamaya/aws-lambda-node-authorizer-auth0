@@ -1,0 +1,59 @@
+service: ex-authorizer-auth0
+
+frameworkVersion: '2'
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  lambdaHashingVersion: 20201221
+  region: eu-west-1
+  environment:
+    AUTH0_DOMAIN: ${file(./secrets.json):AUTH0_DOMAIN}
+    AUTH0_CERTIFICATE: ${file(./key.pem)}
+
+plugins:
+  - serverless-offline
+
+functions:
+  authorizer:
+    handler: AuthHandler.auth
+  publicAPI:
+    handler: PublicHandler.handleRequest
+    events:
+      - http:
+          path: public
+          method: get
+          cors: true
+  privateAPI:
+    handler: PrivateHandler.handleRequest
+    events:
+      - http:
+          path: private
+          method: get
+          cors: true
+          # See custom authorizer docs here: https://bit.ly/32ZxpSs
+          authorizer: authorizer
+
+resources:
+  Resources:
+    # These responses are needed for custom authorizer failures cors support ¯\_(ツ)_/¯
+    ExpiredTokenGatewayResponse:
+      Type: 'AWS::ApiGateway::GatewayResponse'
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: EXPIRED_TOKEN
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
+        StatusCode: '401'
+    AuthFailureGatewayResponse:
+      Type: 'AWS::ApiGateway::GatewayResponse'
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: UNAUTHORIZED
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
+        StatusCode: '401'
